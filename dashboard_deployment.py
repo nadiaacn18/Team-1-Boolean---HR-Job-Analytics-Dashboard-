@@ -159,7 +159,7 @@ else:
             st.write("* Reduce recruitment costs.\n* Allows HR to intervene.\n* Replacing intuition with data.")
         with col2:
             st.subheader("Success Metrics")
-            st.write("* **Accuracy & Recall**\n* **F2-Score**")
+            st.write("* **Precission & Recall**\n* **F2-Score**")
 
     with tab_manual:
         col_in, col_out = st.columns([1, 2], gap="large")
