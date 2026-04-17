@@ -99,13 +99,37 @@ st.markdown("""
 # --- 3. LOAD ASSETS ---
 @st.cache_resource
 def load_model_package():
-    try:
-        package = joblib.load(MODEL_PATH)
-        return package
-    except Exception:
-        return None
+    # Mendapatkan path absolut agar tidak bingung mencari file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(current_dir, MODEL_PATH)
+    
+    if not os.path.exists(full_path):
+        # Jika tidak ketemu, coba cari di root (fallback)
+        full_path = MODEL_PATH 
 
-package = load_model_package()
+    try:
+        # Menggunakan joblib untuk load sesuai library yang Anda import
+        if os.path.exists(full_path):
+            package = joblib.load(full_path)
+            return package
+        else:
+            return "FILE_NOT_FOUND"
+    except Exception as e:
+        return str(e)
+
+package_result = load_model_package()
+
+# Logika pengecekan error yang lebih detail
+if isinstance(package_result, str):
+    if package_result == "FILE_NOT_FOUND":
+        st.error(f"❌ **File model tidak ditemukan.**")
+        st.info(f"Pastikan file `{MODEL_PATH}` sudah di-push ke GitHub dan berada di folder yang sama dengan script ini.")
+    else:
+        st.error(f"❌ **Gagal memuat model.**")
+        st.warning(f"Error Detail: {package_result}")
+    st.stop() # Menghentikan eksekusi aplikasi agar tidak error di bawah
+else:
+    package = package_result
 
 # --- 4. HEADER ---
 st.markdown("""
