@@ -1,13 +1,3 @@
-# -*- coding: utf-8 -*-
-"""dashboard_deployment"""
-
-import streamlit as st
-import pandas as pd
-import joblib
-import numpy as np
-import os
-from lime.lime_tabular import LimeTabularExplainer
-
 # --- 1. DEFINE CUSTOM FUNCTIONS ---
 def enhance_features(df):
     df_copy = df.copy()
@@ -44,6 +34,13 @@ def get_risk_details(p, threshold):
         return 'Low Risk (Stable)', '#3D7D44', 'Routine Monitoring'
 
 # --- 2. CONFIGURATION & STYLING ---
+import streamlit as st
+import pandas as pd
+import joblib
+import numpy as np
+import os
+from lime.lime_tabular import LimeTabularExplainer
+
 MODEL_PATH = 'model_employee_retention_final_v2.pkl'
 
 st.set_page_config(page_title="Job Prediction", page_icon="👥", layout="wide")
@@ -179,7 +176,6 @@ else:
                 proc_df = enhance_features(input_df)[final_features]
                 prob = model.predict_proba(proc_df)[:, 1][0]
 
-                # Penerapan Logika get_risk_details
                 risk_label, risk_color, recommendation = get_risk_details(prob, optimal_threshold)
                 label = "Resign" if prob >= optimal_threshold else "Stay"
 
@@ -202,29 +198,57 @@ else:
                 st.table(lime_df[['Feature Name', 'Contribution Score', 'Information']].sort_values(by='Contribution Score', ascending=False))
 
     with tab_batch:
-        st.subheader("Upload Employee Data (CSV)")
-        uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], label_visibility="collapsed")
+        st.subheader("Batch Prediction Analysis")
+        
+        # --- Bagian Template CSV ---
+        with st.expander("📝 View CSV Template Requirements"):
+            st.info("Your CSV file must contain the following columns with values scaled between 0 and 1:")
+            template_data = pd.DataFrame({
+                'city_development_index': [0.92, 0.62],
+                'relevent_experience': [1, 0],
+                'experience': [0.7, 0.2],
+                'last_new_job': [0.4, 0.1],
+                'training_hours': [0.15, 0.55]
+            })
+            st.table(template_data)
+            
+            csv_template = template_data.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV Template",
+                data=csv_template,
+                file_name="hr_template.csv",
+                mime="text/csv",
+            )
+        
+        st.markdown("---")
+        uploaded_file = st.file_uploader("Upload your employee CSV file", type=["csv"])
 
         if uploaded_file is not None:
             data = pd.read_csv(uploaded_file)
             st.success(f"Successfully uploaded {len(data)} data rows.")
-            proc_batch = enhance_features(data)
-            for col in final_features:
-                if col not in proc_batch.columns: proc_batch[col] = 0
             
-            probs = model.predict_proba(proc_batch[final_features])[:, 1]
-            data['Prob_Resign'] = probs
+            # Memastikan kolom yang diperlukan ada
+            required_cols = ['city_development_index', 'relevent_experience', 'experience', 'last_new_job', 'training_hours']
+            missing = [c for c in required_cols if c not in data.columns]
             
-            # Penerapan Logika get_risk_details untuk Batch
-            data['Risk_Details'] = data['Prob_Resign'].apply(lambda x: get_risk_details(x, optimal_threshold))
-            data['Risk_Level'] = data['Risk_Details'].apply(lambda x: x[0])
-            data['Recommendation'] = data['Risk_Details'].apply(lambda x: x[2])
-            data['Prediction Status'] = data['Prob_Resign'].apply(lambda x: "Resign" if x >= optimal_threshold else "Stay")
-            
-            st.write("### Preview Prediction Results Data")
-            # Menampilkan kolom-kolom penting hasil olahan fungsi risk
-            display_cols = [col for col in data.columns if col not in ['Risk_Details']]
-            st.dataframe(data[display_cols].style.background_gradient(subset=['Prob_Resign'], cmap='RdYlGn_r'), use_container_width=True)
+            if missing:
+                st.error(f"Missing columns in CSV: {', '.join(missing)}")
+            else:
+                proc_batch = enhance_features(data)
+                for col in final_features:
+                    if col not in proc_batch.columns: proc_batch[col] = 0
+                
+                probs = model.predict_proba(proc_batch[final_features])[:, 1]
+                data['Prob_Resign'] = probs
+                
+                data['Risk_Details'] = data['Prob_Resign'].apply(lambda x: get_risk_details(x, optimal_threshold))
+                data['Risk_Level'] = data['Risk_Details'].apply(lambda x: x[0])
+                data['Recommendation'] = data['Risk_Details'].apply(lambda x: x[2])
+                data['Prediction Status'] = data['Prob_Resign'].apply(lambda x: "Resign" if x >= optimal_threshold else "Stay")
+                
+                st.write("### Preview Prediction Results Data")
+                display_cols = [col for col in data.columns if col not in ['Risk_Details']]
+                st.dataframe(data[display_cols].style.background_gradient(subset=['Prob_Resign'], cmap='RdYlGn_r'), use_container_width=True)
 
 # --- 6. FOOTER ---
 st.markdown("---")
